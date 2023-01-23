@@ -461,6 +461,7 @@ def render_rays(ray_batch,
            'position_delta': position_delta}
     if retraw:
         ret['raw'] = raw
+        ret['opq_map'] = torch.sum(weights[..., None] * raw[..., 4:], -2)  # [N_rays, 3]
     if N_importance > 0:
         if rgb_map_0 is not None:
             ret['rgb0'] = rgb_map_0
@@ -722,6 +723,7 @@ def train():
     images = torch.Tensor(images).to(device)
     poses = torch.Tensor(poses).to(device)
     times = torch.Tensor(times).to(device)
+    ones = torch.ones((1, 1), device=device)
     if use_batching:
         rays_rgb = torch.Tensor(rays_rgb).to(device)
 
@@ -839,6 +841,11 @@ def train():
             img_loss0 = img2mse(extras['rgb0'], target_s)
             loss = loss + img_loss0
             psnr0 = mse2psnr(img_loss0)
+
+        if 'opq_map' in extras:
+            opq = extras['opq_map']
+            E_opaque = F.mse_loss(opq, ones.expand_as(opq), reduction='mean')
+            loss = loss - 1 / 375 * E_opaque
 
         if args.do_half_precision:
             with amp.scale_loss(loss, optimizer) as scaled_loss:
