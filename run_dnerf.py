@@ -1,3 +1,4 @@
+import logging
 import os
 import imageio
 import time
@@ -268,12 +269,18 @@ def create_nerf(args):
         ckpt = torch.load(ckpt_path)
 
         start = ckpt['global_step']
-        # optimizer.load_state_dict(ckpt['optimizer_state_dict'])
 
         # Load model
-        del ckpt['network_fn_state_dict']['_occ.rgb_linear.weight']
-        del ckpt['network_fn_state_dict']['_occ.rgb_linear.bias']
-        model.load_state_dict(ckpt['network_fn_state_dict'], strict=False)
+
+        try:
+            model.load_state_dict(ckpt['network_fn_state_dict'])
+            optimizer.load_state_dict(ckpt['optimizer_state_dict'])
+        except RuntimeError as e:
+            del ckpt['network_fn_state_dict']['_occ.rgb_linear.weight']
+            del ckpt['network_fn_state_dict']['_occ.rgb_linear.bias']
+            logging.getLogger(__name__).warning('_occ.rgb_linear is removed from weights')
+            model.load_state_dict(ckpt['network_fn_state_dict'], strict=False)
+
         if model_fine is not None:
             model_fine.load_state_dict(ckpt['network_fine_state_dict'])
         if args.do_half_precision:
@@ -665,7 +672,8 @@ def train():
         with open(f, 'w') as file:
             file.write(open(args.config, 'r').read())
 
-    args.palette, _ = build_palette(os.path.join(args.datadir, os.path.basename(args.config)), images.reshape(-1, 3))
+    # args.palette, _ = build_palette(os.path.join(args.datadir, os.path.basename(args.config)), images.reshape(-1, 3))
+    args.palette = None
     # Create nerf model
     render_kwargs_train, render_kwargs_test, start, grad_vars, optimizer = create_nerf(args)
     global_step = start
