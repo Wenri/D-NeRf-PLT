@@ -4,6 +4,7 @@ import time
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm, trange
 
+from layer_decompose import build_palette
 from run_dnerf_helpers import *
 
 from load_blender import load_blender_data
@@ -218,7 +219,7 @@ def create_nerf(args):
                              input_ch=input_ch, output_ch=output_ch, skips=skips,
                              input_ch_views=input_ch_views, input_ch_time=input_ch_time,
                              use_viewdirs=args.use_viewdirs, embed_fn=embed_fn,
-                             zero_canonical=not args.not_zero_canonical).to(device)
+                             zero_canonical=not args.not_zero_canonical, palette=args.palette).to(device)
     grad_vars = list(model.parameters())
 
     model_fine = None
@@ -227,7 +228,7 @@ def create_nerf(args):
                                       input_ch=input_ch, output_ch=output_ch, skips=skips,
                                       input_ch_views=input_ch_views, input_ch_time=input_ch_time,
                                       use_viewdirs=args.use_viewdirs, embed_fn=embed_fn,
-                                      zero_canonical=not args.not_zero_canonical).to(device)
+                                      zero_canonical=not args.not_zero_canonical, palette=args.palette).to(device)
         grad_vars += list(model_fine.parameters())
 
     network_query_fn = lambda inputs, viewdirs, ts, network_fn: run_network(inputs, viewdirs, ts, network_fn,
@@ -267,9 +268,11 @@ def create_nerf(args):
         ckpt = torch.load(ckpt_path)
 
         start = ckpt['global_step']
-        optimizer.load_state_dict(ckpt['optimizer_state_dict'])
+        # optimizer.load_state_dict(ckpt['optimizer_state_dict'])
 
         # Load model
+        del ckpt['network_fn_state_dict']['_occ.rgb_linear.weight']
+        del ckpt['network_fn_state_dict']['_occ.rgb_linear.bias']
         model.load_state_dict(ckpt['network_fn_state_dict'], strict=False)
         if model_fine is not None:
             model_fine.load_state_dict(ckpt['network_fine_state_dict'])
@@ -662,6 +665,7 @@ def train():
         with open(f, 'w') as file:
             file.write(open(args.config, 'r').read())
 
+    args.palette, _ = build_palette(os.path.join(args.datadir, os.path.basename(args.config)), images.reshape(-1, 3))
     # Create nerf model
     render_kwargs_train, render_kwargs_test, start, grad_vars, optimizer = create_nerf(args)
     global_step = start

@@ -67,7 +67,7 @@ def get_embedder(multires, input_dims, i=0):
 # Model
 class DirectTemporalNeRF(nn.Module):
     def __init__(self, D=8, W=256, input_ch=3, input_ch_views=3, input_ch_time=1, output_ch=4, skips=(4,),
-                 use_viewdirs=False, memory=(), embed_fn=None, zero_canonical=True):
+                 use_viewdirs=False, memory=(), embed_fn=None, zero_canonical=True, palette=None):
         super(DirectTemporalNeRF, self).__init__()
         self.D = D
         self.W = W
@@ -79,14 +79,15 @@ class DirectTemporalNeRF(nn.Module):
         self.memory = memory
         self.embed_fn = embed_fn
         self.zero_canonical = zero_canonical
-        palette = (
-            (1.0004016160964966, -0.00029597230604849756, -0.00015363504644483328),
-            (1.000272512435913, 0.9999295473098755, 1.0004054307937622),
-            (0.5882838368415833, 0.7527514696121216, 0.972983181476593),
-            (1.0005661249160767, 1.0000742673873901, 0.23118509352207184),
-            (1.0004284381866455, 0.7731660604476929, 0.1040787547826767),
-            (0.016203125938773155, 0.014685546047985554, 0.017047299072146416)
-        )
+        if palette is None:
+            palette = (
+                (1.0004016160964966, -0.00029597230604849756, -0.00015363504644483328),
+                (1.000272512435913, 0.9999295473098755, 1.0004054307937622),
+                (0.5882838368415833, 0.7527514696121216, 0.972983181476593),
+                (1.0005661249160767, 1.0000742673873901, 0.23118509352207184),
+                (1.0004284381866455, 0.7731660604476929, 0.1040787547826767),
+                (0.016203125938773155, 0.014685546047985554, 0.017047299072146416)
+            )
         self._occ = NeRFOriginal(D=D, W=W, input_ch=input_ch, input_ch_views=input_ch_views,
                                  input_ch_time=input_ch_time, output_ch=output_ch, skips=skips,
                                  use_viewdirs=use_viewdirs, memory=memory, embed_fn=embed_fn,

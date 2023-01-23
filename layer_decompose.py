@@ -1,5 +1,46 @@
+from pathlib import Path
+
 import torch
 import torch.nn.functional as F
+import numpy as np
+from einops import rearrange
+from scipy.spatial import ConvexHull
+
+from palette.Additive_mixing_layers_extraction import Hull_Simplification_determined_version
+
+
+def sort_palette(rgbs, palette_rgb, bg=None, K=1e8):
+    N = rgbs.shape[0]
+    if N > K:
+        rgbs = rgbs[torch.randperm(N)[:K]]
+    dist = np.linalg.norm(rearrange(rgbs, 'N C -> N 1 C') - rearrange(palette_rgb, 'P C -> 1 P C'), axis=-1)
+    dist = np.bincount(np.argmin(dist, axis=-1))
+    if bg is not None:
+        idx = np.argmin(np.linalg.norm(palette_rgb - bg, axis=-1))
+        dist[idx] = np.iinfo(dist.dtype).max
+    dist = np.argsort(dist)
+
+    # bg = np.ones(3) if dataset.white_bg else np.zeros(3)
+    # palette_rgb = [tuple(a.tolist()) for a in palette_rgb[dist.cpu().numpy()] if not np.allclose(a, bg)]
+    # palette_rgb.append(tuple(bg.tolist()))
+
+    palette_rgb = palette_rgb.tolist()
+    return [(*palette_rgb[i.item()],) for i in dist]
+
+
+def build_palette(filepath, rgbs, white_bg=True, simplify=True):
+    filepath = Path(filepath)
+    rgbs = torch.as_tensor(rgbs)
+    if white_bg:
+        fg = torch.lt(rgbs, 1.).any(dim=-1)
+        rgbs = rgbs[fg]
+    bg = np.zeros((3,), dtype=np.float32)
+    rgbs = rgbs.to(device='cpu', dtype=torch.double).numpy()
+    hull = ConvexHull(rgbs)
+    hull_vertices = hull.points[hull.vertices]
+    palette = Hull_Simplification_determined_version(
+        rgbs, filepath.stem + "-convexhull_vertices") if simplify else hull_vertices
+    return sort_palette(rgbs, palette, bg=bg), hull.points[hull.vertices]
 
 
 class PLTRender(torch.nn.Module):

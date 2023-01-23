@@ -8,3 +8,4 @@
 *.zip
 data/*
 logs/*
+*-convexhull_vertices-*
