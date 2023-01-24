@@ -31,9 +31,9 @@ def sort_palette(rgbs, palette_rgb, bg=None, K=1e8):
 def build_palette(filepath, rgbs, white_bg=True, simplify=True):
     filepath = Path(filepath)
     rgbs = torch.as_tensor(rgbs)
-    if white_bg:
-        fg = torch.lt(rgbs, 1.).any(dim=-1)
-        rgbs = rgbs[fg]
+    # if white_bg:
+    #     fg = torch.lt(rgbs, 1.).any(dim=-1)
+    #     rgbs = rgbs[fg]
     bg = np.zeros((3,), dtype=np.float32)
     rgbs = rgbs.to(device='cpu', dtype=torch.double).numpy()
     hull = ConvexHull(rgbs)
