@@ -5,7 +5,7 @@ import time
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm, trange
 
-from layer_decompose import build_palette
+from layer_decompose import build_palette, pick_palette
 from run_dnerf_helpers import *
 
 from load_blender import load_blender_data
@@ -278,7 +278,9 @@ def create_nerf(args):
         except RuntimeError as e:
             del ckpt['network_fn_state_dict']['_occ.rgb_linear.weight']
             del ckpt['network_fn_state_dict']['_occ.rgb_linear.bias']
-            logging.getLogger(__name__).warning('_occ.rgb_linear is removed from weights')
+            logger = logging.getLogger(__name__)
+            logger.warning(e)
+            logger.warning('_occ.rgb_linear is removed from weights')
             model.load_state_dict(ckpt['network_fn_state_dict'], strict=False)
 
         if model_fine is not None:
@@ -609,7 +611,7 @@ def config_parser():
                         help='frequency of console printout and metric loggin')
     parser.add_argument("--i_img", type=int, default=10000,
                         help='frequency of tensorboard image logging')
-    parser.add_argument("--i_weights", type=int, default=100000,
+    parser.add_argument("--i_weights", type=int, default=10000,
                         help='frequency of weight ckpt saving')
     parser.add_argument("--i_testset", type=int, default=200000,
                         help='frequency of testset saving')
@@ -673,6 +675,19 @@ def train():
             file.write(open(args.config, 'r').read())
 
     # args.palette, _ = build_palette(os.path.join(args.datadir, os.path.basename(args.config)), images.reshape(-1, 3))
+    # args.palette = pick_palette((
+    #     (1.0, 0.24313725490196078, 0.44313725490196076), (1.0, 0.4627450980392157, 0.5176470588235295),
+    #     (0.10980392156862745, 1.0, 0.3333333333333333), (1.0, 1.0, 1.0),
+    #     (0.34509803921568627, 0.48627450980392156, 0.5137254901960784),
+    #     (0.6627450980392157, 0.6745098039215687, 0.10196078431372549),
+    #     (0.0, 0.0, 0.0),
+    # ))  # standup_edit
+    # args.palette = pick_palette((
+    #     (1.0, 0.17254901960784313, 0.17254901960784313), (1.0, 0.4008330630122508, 0.0),
+    #     (1.0, 0.5333333333333333, 0.5882352941176471),
+    #     (0.2196078431372549, 0.17647058823529413, 0.49411764705882355),
+    #     (1.0, 1.0, 1.0), (0.0, 0.0, 0.0),
+    # ))
     args.palette = None
     # Create nerf model
     render_kwargs_train, render_kwargs_test, start, grad_vars, optimizer = create_nerf(args)
